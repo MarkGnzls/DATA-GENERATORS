@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% set active = "home" %}
+{% block content %}
+
+<div class="container-fluid">
+
+  <h3 class="fw-bold mb-2">Welcome — ML Model Generator</h3>
+  <p class="text-muted">Create datasets, explore EDA, train models, upload models, and run predictions — all in one place.</p>
+
+  <div class="row g-4 mt-2">
+
+    <!-- LEFT COLUMN — Quick Actions -->
+    <div class="col-lg-4">
+
+      <div class="card p-3 shadow-sm">
+        <h5 class="fw-semibold">Quick Actions</h5>
+
+        <button id="quickGenerateBtn" class="btn btn-primary w-100 mt-2">
+          <i class="bi bi-gear"></i> Generate Example Dataset
+        </button>
+
+        <button id="quickTrainBtn" class="btn btn-success w-100 mt-2">
+          <i class="bi bi-cpu"></i> Train Models on Example
+        </button>
+
+        <button id="openDatasetBuilder" class="btn btn-outline-secondary w-100 mt-2">
+          <i class="bi bi-database"></i> Open Dataset Builder
+        </button>
+      </div>
+
+      <div class="card p-3 shadow-sm mt-3">
+        <h6 class="fw-semibold">Project Information</h6>
+        <p class="small text-muted mb-0">
+          Final Project in Modeling & Simulation — Synthetic Data Generation & ML Pipeline.<br>
+          BSCS 4A
+        </p>
+      </div>
+
+    </div>
+
+    <!-- RIGHT COLUMN — Summary Card -->
+    <div class="col-lg-8">
+
+      <div id="homeSummary" class="card p-3 shadow-sm">
+        <h5 class="fw-semibold">Latest Run Summary</h5>
+
+        <div id="summaryContent" class="mt-2">
+          <p class="text-muted">
+            No results yet. Generate a dataset or begin training to populate this summary section.
+          </p>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</div>
+
+{% endblock %}

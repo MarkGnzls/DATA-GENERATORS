@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% set active = "dataset" %}
+{% block content %}
+
+<div class="container-fluid">
+
+  <h3 class="fw-bold mb-3">Dataset Builder — Synthetic Data Generation</h3>
+  <p class="text-muted">Generate custom synthetic datasets with configurable features, class parameters, and sampling controls.</p>
+
+  <div class="row g-3">
+
+    <!-- LEFT PANEL — Controls -->
+    <div class="col-lg-4">
+      <div class="card p-3 shadow-sm">
+        <h5 class="fw-semibold mb-2">Configuration</h5>
+
+        <!-- Feature Names -->
+        <label class="form-label mt-2">Feature Names (comma-separated)</label>
+        <input id="featureNames" class="form-control" placeholder="length,width,density,pH">
+
+        <!-- Class Names -->
+        <label class="form-label mt-3">Class Names (comma-separated)</label>
+        <input id="classNames" class="form-control" placeholder="Ampalaya,Banana,Cabbage">
+
+        <!-- Class Settings -->
+        <div id="classSettings" class="mt-3"></div>
+
+        <!-- Samples -->
+        <label class="form-label mt-3">Number of Samples</label>
+        <input type="range" id="sampleCount" class="form-range" min="500" max="20000" value="5000">
+        <p><strong id="sampleCountLabel">5000</strong> samples</p>
+
+        <!-- Seed -->
+        <label class="form-label mt-3">Random Seed</label>
+        <input id="seed" type="number" class="form-control" value="42">
+
+        <!-- Generate Button -->
+        <button id="btnGenerateDataset" class="btn btn-primary w-100 mt-3">
+          <i class="bi bi-gear"></i> Generate Dataset
+        </button>
+
+        <div id="dsAlerts" class="mt-3"></div>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL — EDA + CSV Preview -->
+    <div class="col-lg-8">
+
+      <!-- CSV Preview Card -->
+      <div class="card p-3 shadow-sm">
+        <h5 class="fw-semibold">Dataset Preview</h5>
+        <p class="text-muted small">After you generate a dataset, you can download the CSV or use it in Model Training.</p>
+
+        <div id="datasetPreview" class="mt-2 text-muted"></div>
+      </div>
+
+      <!-- EDA Section -->
+      <div class="card p-3 shadow-sm mt-3">
+        <h5 class="fw-semibold">Exploratory Data Analysis (EDA)</h5>
+        <p class="small text-muted">Automatically generated charts will appear here.</p>
+
+        <div id="edaPreviewArea" class="row g-3 mt-2">
+          <!-- Filled dynamically by main.js -->
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+{% endblock %}

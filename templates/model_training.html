@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% set active = "train" %}
+{% block content %}
+
+<div class="container-fluid">
+
+  <h3 class="fw-bold mb-3">Model Training — Train & Predict</h3>
+  <p class="text-muted">Upload or use a generated CSV. Train models and get summary metrics, samples, and confusion matrix.</p>
+
+  <div class="row g-3">
+
+    <!-- LEFT COLUMN -->
+    <div class="col-lg-4">
+
+      <!-- TRAINING SETUP -->
+      <div class="card p-3 shadow-sm">
+        <h5 class="fw-semibold">Training Configuration</h5>
+
+        <label class="form-label mt-2">CSV URL (optional)</label>
+        <input id="trainCsvUrl" class="form-control" placeholder="/uploads/data_xxx.csv">
+
+        <label class="form-label mt-3">Features (comma-separated)</label>
+        <input id="trainFeatures" class="form-control" placeholder="length,width,density,pH">
+
+        <label class="form-label mt-3">Target Column</label>
+        <input id="trainTarget" class="form-control" placeholder="label">
+
+        <label class="form-label mt-3">Test Size (%)</label>
+        <input type="range" id="trainTestSplit" class="form-range" min="5" max="50" value="30">
+        <p><strong id="trainTestLabel">30%</strong></p>
+
+        <label class="form-label mt-3">K-Fold Cross Validation (0 = off)</label>
+        <input id="trainKFold" type="number" class="form-control" min="0" value="0">
+
+        <button id="btnStartTraining" class="btn btn-success w-100 mt-3">
+          <i class="bi bi-cpu"></i> Start Training
+        </button>
+
+        <div id="trainAlerts" class="mt-3"></div>
+      </div>
+
+      <!-- UPLOAD MODEL -->
+      <div class="card p-3 shadow-sm mt-3">
+        <h5 class="fw-semibold">Upload Pretrained Model</h5>
+
+        <input type="file" id="uploadModelFile" class="form-control mb-2">
+        <label class="form-label">Features (comma-separated)</label>
+        <input id="uploadModelFeatures" class="form-control" placeholder="length,width,density,pH">
+
+        <button id="btnUploadModel" class="btn btn-outline-primary w-100 mt-3">
+          <i class="bi bi-upload"></i> Upload Model
+        </button>
+
+        <div id="uploadStatus" class="mt-2"></div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <div class="col-lg-8">
+
+      <div id="trainResults" class="card p-3 shadow-sm">
+        <h5 class="fw-semibold">Training Results</h5>
+
+        <div id="splitInfo" class="mb-3 text-muted">No training run yet.</div>
+
+        <div id="bestModelSummary" class="mb-3"></div>
+
+        <div id="metricsTable" class="mb-3"></div>
+
+        <h6 class="fw-semibold">Classification Report</h6>
+        <pre id="classReport" class="small bg-light p-2">No training run yet.</pre>
+
+        <h6 class="fw-semibold mt-3">Confusion Matrix</h6>
+        <div id="confusionMatrixArea" class="mb-3"></div>
+
+        <h6 class="fw-semibold mt-3">Sample Data</h6>
+        <div class="row">
+          <div class="col-md-6">
+            <p class="small mb-1">Original sample</p>
+            <div id="originalSample" class="small text-muted"></div>
+          </div>
+          <div class="col-md-6">
+            <p class="small mb-1">Scaled sample (best model's scaler)</p>
+            <div id="scaledSample" class="small text-muted"></div>
+          </div>
+        </div>
+
+        <div id="modelDownload" class="mt-3"></div>
+      </div>
+
+      <!-- Predictions -->
+      <div class="card p-3 shadow-sm mt-3">
+        <h5 class="fw-semibold">Make a Prediction</h5>
+
+        <label class="form-label">Model URL</label>
+        <input id="predictModelUrl" class="form-control" placeholder="/models/model_xxx.joblib">
+
+        <div id="predictFeatureInputs" class="mt-3"></div>
+
+        <button id="btnMakePrediction" class="btn btn-primary mt-3">
+          <i class="bi bi-lightning-fill"></i> Predict
+        </button>
+
+        <div id="predictionResult" class="mt-3"></div>
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+{% endblock %}
