@@ -1,4 +1,3 @@
-import streamlit as st
+from app import main
 
-st.title("ML Model Generator")
-st.write("Streamlit deployment successful!")
+main()
