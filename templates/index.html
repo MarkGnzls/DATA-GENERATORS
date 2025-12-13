@@ -5,7 +5,10 @@
 <div class="container-fluid">
 
   <h3 class="fw-bold mb-2">Welcome — ML Model Generator</h3>
-  <p class="text-muted">Create datasets, explore EDA, train models, upload models, and run predictions — all in one place.</p>
+  <p class="text-muted">
+    Use this dashboard to quickly launch dataset generation and model training workflows,
+    and to review your most recent activity.
+  </p>
 
   <div class="row g-4 mt-2">
 
@@ -14,43 +17,66 @@
 
       <div class="card p-3 shadow-sm">
         <h5 class="fw-semibold">Quick Actions</h5>
+        <p class="small text-muted mb-2">
+          Shortcuts to common tasks. Full controls are available in each module.
+        </p>
 
-        <button id="quickGenerateBtn" class="btn btn-primary w-100 mt-2">
-          <i class="bi bi-gear"></i> Generate Example Dataset
-        </button>
+        <!-- Generate Example Dataset (JS or API-based) -->
+        <form action="{{ url_for('generate_example_dataset') }}" method="post">
+  <button type="submit" class="btn btn-primary w-100 mt-2">
+    <i class="bi bi-gear"></i> Generate Example Dataset
+  </button>
+</form>
 
-        <button id="quickTrainBtn" class="btn btn-success w-100 mt-2">
-          <i class="bi bi-cpu"></i> Train Models on Example
-        </button>
 
-        <button id="openDatasetBuilder" class="btn btn-outline-secondary w-100 mt-2">
+        <!-- Go to Model Training -->
+        <a href="{{ url_for('model_training') }}"
+           class="btn btn-success w-100 mt-2">
+          <i class="bi bi-cpu"></i> Go to Model Training
+        </a>
+
+        <!-- Open Dataset Builder -->
+        <a href="{{ url_for('dataset_builder') }}"
+           class="btn btn-outline-secondary w-100 mt-2">
           <i class="bi bi-database"></i> Open Dataset Builder
-        </button>
+        </a>
       </div>
 
       <div class="card p-3 shadow-sm mt-3">
         <h6 class="fw-semibold">Project Information</h6>
         <p class="small text-muted mb-0">
-          Final Project in Modeling & Simulation — Synthetic Data Generation & ML Pipeline.<br>
+          Final Project in Modeling & Simulation<br>
+          <strong>Synthetic Data Generation & ML Pipeline</strong><br>
           BSCS 4A
         </p>
       </div>
 
     </div>
 
-    <!-- RIGHT COLUMN — Summary Card -->
+    <!-- RIGHT COLUMN — Summary -->
     <div class="col-lg-8">
 
       <div id="homeSummary" class="card p-3 shadow-sm">
-        <h5 class="fw-semibold">Latest Run Summary</h5>
+        <div class="d-flex justify-content-between align-items-center">
+          <h5 class="fw-semibold mb-0">Latest Activity Summary</h5>
+
+          <button id="clearSummaryBtn"
+                  class="btn btn-sm btn-outline-danger"
+                  title="Clear activity history">
+            <i class="bi bi-trash"></i> Clear
+          </button>
+        </div>
+
+        <hr class="my-2">
 
         <div id="summaryContent" class="mt-2">
           <p class="text-muted">
-            No results yet. Generate a dataset or begin training to populate this summary section.
+            No activity recorded yet.<br>
+            Generate a dataset or proceed to model training to populate this section.
           </p>
         </div>
       </div>
-
+ 
     </div>
 
   </div>

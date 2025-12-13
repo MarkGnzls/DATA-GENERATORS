@@ -1,534 +1,322 @@
-/* main.js — unified + fixed + guaranteed working */
+/* =====================================================
+   main.js — CLEAN, ALIGNED, FINAL VERSION (FIXED)
+   ===================================================== */
 
 $(function () {
 
-  console.log("MAIN JS LOADED");  // Debugging
+  console.log("MAIN JS LOADED");
 
-  // ---------------------------------------------------
-  // Utility Helpers
-  // ---------------------------------------------------
-  function showLoading() { $("#loadingOverlay").removeClass("d-none"); }
-  function hideLoading() { $("#loadingOverlay").addClass("d-none"); }
+  /* ===============================
+     GLOBAL STATE
+  =============================== */
+  let CURRENT_CSV = null;
+  let CURRENT_MODEL = null;
+
+  /* ===============================
+     HELPERS
+  =============================== */
+  function showLoading() {
+    $("#loadingOverlay").removeClass("d-none");
+  }
+
+  function hideLoading() {
+    $("#loadingOverlay").addClass("d-none");
+  }
+
   function toast(target, type, msg) {
     $(target).html(`<div class="alert alert-${type}">${msg}</div>`);
   }
-  function clearAlerts() { $(".alert").remove(); }
 
-  // ---------------------------------------------------
-  // Sidebar Toggle (Mobile)
-  // ---------------------------------------------------
-  $("#sidebarToggle").on("click", function () {
-    $("#sidebarMenu").toggleClass("open");
-    $("body").toggleClass("overlay-open", $("#sidebarMenu").hasClass("open"));
-  });
+  /* ===============================
+     HOME PAGE LOGIC (FIXED)
+  =============================== */
+  const isHome =
+    $("#quickGenerateBtn").length ||
+    $("#quickTrainBtn").length ||
+    $("#openDatasetBuilder").length;
 
-  $(document).on("click", function (e) {
-    if (window.innerWidth < 992 && $("#sidebarMenu").hasClass("open")) {
-      if (!$(e.target).closest("#sidebarMenu, #sidebarToggle").length) {
-        $("#sidebarMenu").removeClass("open");
-        $("body").removeClass("overlay-open");
+  if (isHome) {
+
+    const summary = localStorage.getItem("latestRunSummary");
+
+    if (summary) {
+      const s = JSON.parse(summary);
+      let badge = "secondary";
+      let icon = "bi-info-circle";
+
+      if ((s.action || "").includes("Dataset")) {
+        badge = "primary";
+        icon = "bi-database";
+      } else if ((s.action || "").includes("Model")) {
+        badge = "success";
+        icon = "bi-cpu";
       }
+
+      $("#summaryContent").html(`
+        <div class="mb-2">
+          <span class="badge bg-${badge}">
+            <i class="bi ${icon} me-1"></i>${s.action}
+          </span>
+        </div>
+        <ul class="small mb-2">
+          ${s.rows ? `<li><strong>Rows:</strong> ${s.rows}</li>` : ""}
+          ${s.features ? `<li><strong>Features:</strong> ${s.features.join(", ")}</li>` : ""}
+          ${s.classes ? `<li><strong>Classes:</strong> ${s.classes.join(", ")}</li>` : ""}
+        </ul>
+        <p class="small text-muted"><i class="bi bi-clock"></i> ${s.time}</p>
+        ${s.csv_url ? `<a href="${s.csv_url}" target="_blank"><i class="bi bi-download"></i> Download CSV</a>` : ""}
+      `);
     }
-  });
 
-  $(window).on("resize", function () {
-    if (window.innerWidth >= 992) {
-      $("#sidebarMenu").removeClass("open");
-      $("body").removeClass("overlay-open");
-    }
-  });
+  }
 
-  // ---------------------------------------------------
-  // HOME PAGE — Quick Actions
-  // ---------------------------------------------------
-  $("#quickGenerateBtn").on("click", function () {
-    console.log("QuickGenerate clicked");
-    window.location.href = "/dataset_builder";
-  });
+  
+  /* ===============================
+     DATASET BUILDER
+  =============================== */
+  if ($("#btnGenerateDataset").length) {
 
-  $("#quickTrainBtn").on("click", function () {
-    console.log("QuickTrain clicked");
-    window.location.href = "/model_training";
-  });
+    $("#btnGenerateDataset").on("click", async function () {
 
-  $("#openDatasetBuilder").on("click", function () {
-    console.log("OpenDatasetBuilder clicked");
-    window.location.href = "/dataset_builder";
-  });
+      const features = $("#featureNames").val().trim();
+      const classNames = $("#classNames").val().trim();
 
-  // ---------------------------------------------------
-  // DATASET BUILDER
-  // ---------------------------------------------------
+      if (!features || !classNames)
+        return toast("#dsAlerts", "warning", "Missing fields.");
 
-  /* ===== Unified Dataset Builder + Model Training handlers =====
-   Drop this into static/js/main.js (replace existing dataset/train sections).
-   It supports multiple ID variants to be robust with your templates.
-*/
+      const class_params = classNames.split(",").map(cls => ({
+        name: cls.trim(),
+        mean: Number($(`.mean-input[data-class="${cls.trim()}"]`).val() || 50),
+        std: Number($(`.std-input[data-class="${cls.trim()}"]`).val() || 10)
+      }));
 
-  // small helpers
-  function showLoading(){ $("#loadingOverlay").removeClass("d-none"); }
-  function hideLoading(){ $("#loadingOverlay").addClass("d-none"); }
-  function toast(target, type, html){ $(target).html(`<div class="alert alert-${type}">${html}</div>`); }
+      showLoading();
+      try {
+        const resp = await fetch("/api/generate_custom", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            features,
+            class_params,
+            samples: Number($("#sampleCount").val()),
+            seed: Number($("#seed").val())
+          })
+        });
 
-  // --- Utility: build class param inputs (works for #classNames or #classNamesInput)
-  function buildClassSettingsInput(selectorClassNames="#classNames, #classNamesInput"){
-    $(selectorClassNames).each(function(){
-      const classes = $(this).val() ? $(this).val().split(",").map(s=>s.trim()).filter(Boolean) : [];
-      let html = "";
-      classes.forEach(c=>{
-        html += `<div class="card p-2 mt-2">
-                  <h6 class="mb-2">${c} Settings</h6>
-                  <label class="form-label">Mean</label>
-                  <input data-class="${c}" class="form-control class-mean" value="100">
-                  <label class="form-label mt-2">Std Dev</label>
-                  <input data-class="${c}" class="form-control class-std" value="10">
-                 </div>`;
-      });
-      // write to either #classSettings or #classSettingsArea if present
-      if ($("#classSettings").length) $("#classSettings").html(html || `<div class="text-muted small">Add classes separated by commas.</div>`);
-      if ($("#classSettingsArea").length) $("#classSettingsArea").html(html || `<div class="text-muted small">Add classes separated by commas.</div>`);
+        const data = await resp.json();
+        if (data.status !== "ok") throw data.message;
+
+        CURRENT_CSV = data.csv_url;
+        $("#datasetPreview").html(`<a href="${data.csv_url}" target="_blank">Download CSV</a>`);
+        runEDA(CURRENT_CSV);
+
+      } catch (e) {
+        toast("#dsAlerts", "danger", e);
+      } finally {
+        hideLoading();
+      }
     });
   }
 
-  // Bind inputs to update
-  $(document).on("input", "#classNames, #classNamesInput", function(){ buildClassSettingsInput(); });
-  buildClassSettingsInput(); // initial
+  /* ===============================
+     EDA
+  =============================== */
+  async function runEDA(csv_url) {
+    $("#edaPreviewArea").html("Running EDA...");
+    const resp = await fetch("/api/eda", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ csv_url })
+    });
+    const data = await resp.json();
+    if (data.status !== "ok") return;
 
-  // Keep sampleCount label updated (supports both IDs)
-  $(document).on("input change", "#sampleCount, #sampleCountInput", function(){
-    if ($("#sampleCountLabel").length) $("#sampleCountLabel").text($(this).val());
-    if ($("#sampleCountLabelAlt").length) $("#sampleCountLabelAlt").text($(this).val());
-  });
-
-  // ---------- GENERATE DATASET (works if button ID is #btnGenerateDataset or #generateDataset or #generateSynthetic) ----------
-  async function generateDatasetHandler(){
-    $("#dsAlerts").html(""); if ($("#edaPreviewArea").length) $("#edaPreviewArea").html("");
-
-    // gather features and classes from possible inputs
-    const features = ($("#featureNames").val() || $("#featureNamesInput").val() || "").trim();
-    const classNamesStr = ($("#classNames").val() || $("#classNamesInput").val() || "").trim();
-    const samples = Number($("#sampleCount").val() || $("#sampleCountInput").val() || 5000);
-    const seed = Number($("#seed").val() || 42);
-
-    if (!features) return toast("#dsAlerts","warning","Enter feature names (comma-separated).");
-    if (!classNamesStr) return toast("#dsAlerts","warning","Enter class names (comma-separated).");
-
-    // collect class params
-    const classParams = [];
-    classNamesStr.split(",").map(s=>s.trim()).filter(Boolean).forEach(c=>{
-      const mean = Number($(`.class-mean[data-class="${c}"]`).val() || 100);
-      const std = Number($(`.class-std[data-class="${c}"]`).val() || 10);
-      classParams.push({name: c, mean, std});
+    let html = "";
+    Object.entries(data.images || {}).forEach(([k, img]) => {
+      html += `
+        <div class="col-md-6">
+          <img class="img-fluid border" src="data:image/png;base64,${img}">
+        </div>`;
     });
 
-    showLoading();
-    try {
-      const resp = await fetch("/api/generate_custom", {
-        method: "POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({ features: features, class_params: classParams, samples: samples, seed: seed })
-      });
-      const data = await resp.json();
-      if (data.status !== "ok") throw data.message || "Generation failed";
-
-      toast("#dsAlerts","success", `Dataset generated — <a href="${data.csv_url}" target="_blank">Open CSV</a>`);
-      // set the CSV URL to training CSV input if exists
-      if ($("#trainCsvUrl").length) $("#trainCsvUrl").val(data.csv_url);
-      if ($("#trainCsvUrlAlt").length) $("#trainCsvUrlAlt").val(data.csv_url);
-
-      // request EDA (if preview area present)
-      if ($("#edaPreviewArea").length){
-        const edaResp = await fetch("/api/eda", {
-          method: "POST", headers: {"Content-Type":"application/json"},
-          body: JSON.stringify({ csv_url: data.csv_url })
-        });
-        const eda = await edaResp.json();
-        if (eda.status === "ok" && eda.images){
-          let out = "";
-          if (eda.images.class_count) out += `<img class="eda-img" src="data:image/png;base64,${eda.images.class_count}">`;
-          if (eda.images.histograms) out += `<img class="eda-img" src="data:image/png;base64,${eda.images.histograms}">`;
-          if (eda.images.heatmap) out += `<img class="eda-img" src="data:image/png;base64,${eda.images.heatmap}">`;
-          $("#edaPreviewArea").html(out);
-        }
-      }
-
-    } catch (err){
-      console.error(err);
-      toast("#dsAlerts","danger", String(err));
-    } finally { hideLoading(); }
+    $("#edaPreviewArea").html(html);
   }
 
-  // wire the generate handlers for any of the button ids you may have
-  $(document).on("click", "#btnGenerateDataset, #generateDataset, #generateSynthetic", function(e){
-    e.preventDefault(); generateDatasetHandler();
-  });
+  /* ===============================
+     MODEL TRAINING (FIXED)
+  =============================== */
+  if ($("#btnStartTraining").length) {
 
-  // ---------- TRAINING: wire Start Training (works for #btnStartTraining or #startTrain or #startTrainBtn) ----------
-  async function startTrainingHandler(){
-    $("#trainAlerts").html("");
-    $("#splitInfo").text("Processing...");
-    $("#classReport").text("");
-    $("#confusionMatrixArea").html("");
-    $("#originalSample").html("");
-    $("#scaledSample").html("");
-    $("#metricsTable").html("");
-    $("#bestModelSummary").html("");
-    $("#modelDownload").html("");
+    $("#btnStartTraining").off("click.training").on("click.training", async function () {
 
-    const payload = {
-      csv_url: ($("#trainCsvUrl").val() || $("#trainCsvUrlAlt").val() || "").trim(),
-      features: ($("#trainFeatures").val() || $("#trainFeaturesAlt").val() || "").trim(),
-      target: ($("#trainTarget").val() || $("#trainTargetAlt").val() || "").trim(),
-      test_split: Number($("#trainTestSplit").val() || 30),
-      kfold: Number($("#trainKFold").val() || 0)
-    };
-
-    if (!payload.csv_url) return toast("#trainAlerts","warning","CSV URL required (use Dataset Builder).");
-    if (!payload.features) return toast("#trainAlerts","warning","Enter features (comma-separated).");
-    if (!payload.target) return toast("#trainAlerts","warning","Enter target column name.");
-
-    showLoading();
-    try {
-      const resp = await fetch("/api/train", {
-        method: "POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify(payload)
-      });
-      const data = await resp.json();
-      if (data.status !== "ok") {
-        toast("#trainAlerts","danger", data.message || "Training failed");
-        $("#splitInfo").text("Training failed.");
-        return;
-      }
-
-      // show split
-      const si = data.split_info || {};
-      if ($("#splitInfo").length){
-        $("#splitInfo").html(`<strong>Total:</strong> ${si.total} &nbsp; <strong>Train:</strong> ${si.train} (${si.train_pct}) &nbsp; <strong>Test:</strong> ${si.test} (${si.test_pct})`);
-      }
-
-      // best model summary
-      if ($("#bestModelSummary").length){
-        $("#bestModelSummary").html(`<div><strong>Best Model:</strong> ${data.best_model} — <strong>Accuracy:</strong> ${(data.best_accuracy||0).toFixed(4)}</div>`);
-      }
-
-      // metrics table
-      if ($("#metricsTable").length && data.metrics){
-        let table = `<table class="table table-sm"><thead><tr><th>Model</th><th>Accuracy</th><th>F1</th></tr></thead><tbody>`;
-        Object.entries(data.metrics).forEach(([m,val])=>{
-          if (val.error) table += `<tr><td>${m}</td><td colspan="2" class="text-danger">${val.error}</td></tr>`;
-          else table += `<tr><td>${m}</td><td>${(val.accuracy||0).toFixed(4)}</td><td>${(val.f1||0).toFixed(4)}</td></tr>`;
-        });
-        table += `</tbody></table>`;
-        $("#metricsTable").html(table);
-      }
-
-      // class report
-      if ($("#classReport").length) $("#classReport").text(data.classification_report || "No report");
-
-      // confusion matrix
-      if (data.confusion_matrix_img && $("#confusionMatrixArea").length) {
-        $("#confusionMatrixArea").html(`<img class="img-fluid border" src="data:image/png;base64,${data.confusion_matrix_img}">`);
-      }
-
-      // samples
-      function sampleTable(arr){
-        if (!arr || !arr.length) return "<div class='text-muted small'>No sample</div>";
-        let html = "<div class='table-responsive'><table class='table table-sm small'><thead><tr>";
-        Object.keys(arr[0]).forEach(h => html += `<th>${h}</th>`);
-        html += "</tr></thead><tbody>";
-        arr.forEach(r => { html += "<tr>"; Object.values(r).forEach(v => html += `<td>${v}</td>`); html += "</tr>"; });
-        html += "</tbody></table></div>";
-        return html;
-      }
-      if ($("#originalSample").length) $("#originalSample").html(sampleTable(data.original_sample));
-      if ($("#scaledSample").length) $("#scaledSample").html(sampleTable(data.scaled_sample));
-
-      if (data.model_url){
-        if ($("#modelDownload").length) $("#modelDownload").html(`<a class="btn btn-outline-secondary btn-sm" href="${data.model_url}" target="_blank">Download Best Model</a>`);
-        if ($("#predictModelUrl").length) $("#predictModelUrl").val(data.model_url);
-      }
-
-    } catch(err){
-      console.error(err); toast("#trainAlerts","danger", String(err));
-    } finally { hideLoading(); }
-  }
-
-  $(document).on("click", "#btnStartTraining, #startTrain, #startTrainBtn", function(e){ e.preventDefault(); startTrainingHandler(); });
-
-  // ---------- Upload model (works for multiple upload button IDs) ----------
-  $(document).on("click", "#btnUploadModel, #uploadModelBtn", async function(e){
-    e.preventDefault();
-    $("#uploadStatus").html("");
-    const file = ($("#uploadModelFile")[0] || {}).files ? $("#uploadModelFile")[0].files[0] : ($("#modelFileUpload")[0]||{}).files[0];
-    const features = ($("#uploadModelFeatures").val() || "").trim();
-    if (!file) return toast("#uploadStatus","warning","Choose a model file.");
-    const fd = new FormData(); fd.append("model_file", file); fd.append("features", features);
-    showLoading();
-    try {
-      const resp = await fetch("/api/upload_model", { method:"POST", body: fd });
-      const data = await resp.json();
-      if (data.status !== "ok") throw data.message || "Upload failed";
-      toast("#uploadStatus","success","Model uploaded. Model URL set for prediction.");
-      if ($("#predictModelUrl").length) $("#predictModelUrl").val(data.model_url);
-    } catch(err){ toast("#uploadStatus","danger", String(err)); }
-    finally{ hideLoading(); }
-  });
-
-  // ---------- Prediction (works if prediction button id varies) ----------
-  function buildPredictInputsFromFeatures(){
-    const featStr = ($("#trainFeatures").val() || $("#uploadModelFeatures").val() || "").trim();
-    const features = featStr ? featStr.split(",").map(s=>s.trim()).filter(Boolean) : [];
-    if (!features.length) { if ($("#predictFeatureInputs").length) $("#predictFeatureInputs").html("<div class='text-muted small'>Enter features to build inputs.</div>"); return; }
-    let html = "<div class='row g-2'>";
-    features.forEach(f => html += `<div class='col-md-6'><label class='form-label'>${f}</label><input class='form-control predict-value' data-feature='${f}'></div>`);
-    html += "</div>";
-    $("#predictFeatureInputs").html(html);
-  }
-  $(document).on("input", "#trainFeatures, #uploadModelFeatures", buildPredictInputsFromFeatures);
-  buildPredictInputsFromFeatures();
-
-  $(document).on("click", "#btnMakePrediction, #makePrediction, #predictBtn", async function(e){
-    e.preventDefault();
-    $("#predictionResult").html("");
-    const model_url = ($("#predictModelUrl").val() || "").trim();
-    if (!model_url) return toast("#predictionResult","warning","Provide model URL.");
-    const features_map = {};
-    let missing = false;
-    $(".predict-value").each(function(){ const k=$(this).data("feature"); const v=$(this).val(); if (v===undefined||v==="") missing=true; features_map[k]=v; });
-    if (missing) return toast("#predictionResult","warning","Fill all feature inputs.");
-    showLoading();
-    try {
-      const resp = await fetch("/api/predict", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ model_url, features_map })});
-      const data = await resp.json();
-      if (data.status !== "ok") throw data.message || "Prediction failed";
-      let out = `<div class="alert alert-success"><strong>Prediction:</strong> ${data.prediction}</div>`;
-      if (data.probabilities) out += `<pre class="small bg-light p-2">${JSON.stringify(data.probabilities,null,2)}</pre>`;
-      $("#predictionResult").html(out);
-    } catch(err){
-      toast("#predictionResult","danger", String(err));
-    } finally { hideLoading(); }
-  });
-
-
-  /* -------------------------
-   MODEL TRAINING — FINAL MERGED VERSION
---------------------------*/
-
-$("#trainTestSplit").on("input change", function () {
-    $("#trainTestLabel").text($(this).val() + "%");
-});
-
-$("#btnStartTraining").on("click", async function () {
-    $("#trainAlerts").html("");
-    $("#splitInfo").text("Processing...");
-    $("#classReport").text("");
-    $("#confusionMatrixArea").html("");
-    $("#originalSample").html("");
-    $("#scaledSample").html("");
-    $("#metricsTable").html("");
-    $("#bestModelSummary").html("");
-    $("#modelDownload").html("");
-
-    const payload = {
+      const payload = {
         csv_url: $("#trainCsvUrl").val().trim(),
         features: $("#trainFeatures").val().trim(),
         target: $("#trainTarget").val().trim(),
         test_split: Number($("#trainTestSplit").val() || 30),
         kfold: Number($("#trainKFold").val() || 0)
-    };
+      };
 
-    if (!payload.csv_url)
-        return toast("#trainAlerts", "warning", "CSV URL is required.");
-    if (!payload.features)
-        return toast("#trainAlerts", "warning", "Enter feature names.");
-    if (!payload.target)
-        return toast("#trainAlerts", "warning", "Enter target column name.");
+      if (!payload.csv_url || !payload.features || !payload.target)
+        return toast("#trainAlerts", "warning", "Missing fields.");
 
-    showLoading();
-    try {
-        const resp = await fetch("/api/train", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-        });
-
-        const data = await resp.json();
-        if (data.status !== "ok") {
-            toast("#trainAlerts", "danger", data.message || "Training failed");
-            $("#splitInfo").text("Training failed.");
-            return;
-        }
-
-        // Split info
-        const si = data.split_info || {};
-        $("#splitInfo").html(`
-            <strong>Total:</strong> ${si.total} —
-            <strong>Train:</strong> ${si.train} (${si.train_pct}) —
-            <strong>Test:</strong> ${si.test} (${si.test_pct})
-        `);
-
-        // Best model summary
-        $("#bestModelSummary").html(`
-            <div><strong>Best Model:</strong> ${data.best_model}
-            — <strong>Accuracy:</strong> ${(data.best_accuracy || 0).toFixed(4)}</div>
-        `);
-
-        // Metrics comparison table
-        let table = `<table class="table table-sm"><thead>
-                        <tr><th>Model</th><th>Accuracy</th><th>F1 Score</th></tr>
-                     </thead><tbody>`;
-        Object.entries(data.metrics).forEach(([m, val]) => {
-            if (val.error)
-                table += `<tr><td>${m}</td><td colspan="2" class="text-danger">${val.error}</td></tr>`;
-            else
-                table += `<tr><td>${m}</td><td>${val.accuracy.toFixed(4)}</td><td>${val.f1.toFixed(4)}</td></tr>`;
-        });
-        table += "</tbody></table>";
-        $("#metricsTable").html(table);
-
-        // Classification report
-        $("#classReport").text(data.classification_report || "No report");
-
-        // Confusion matrix image
-        if (data.confusion_matrix_img)
-            $("#confusionMatrixArea").html(
-                `<img class="img-fluid border" src="data:image/png;base64,${data.confusion_matrix_img}">`
-            );
-
-        // Samples
-        function sampleTable(arr) {
-            if (!arr || arr.length === 0) return "<div class='text-muted small'>No sample</div>";
-            let html = "<table class='table table-sm small'><thead><tr>";
-            Object.keys(arr[0]).forEach(k => html += `<th>${k}</th>`);
-            html += "</tr></thead><tbody>";
-            arr.forEach(r => {
-                html += "<tr>";
-                Object.values(r).forEach(v => html += `<td>${v}</td>`);
-                html += "</tr>";
-            });
-            html += "</tbody></table>";
-            return html;
-        }
-
-        $("#originalSample").html(sampleTable(data.original_sample));
-        $("#scaledSample").html(sampleTable(data.scaled_sample));
-
-        // Model URL
-        if (data.model_url) {
-            $("#predictModelUrl").val(data.model_url);
-            $("#modelDownload").html(`
-                <a href="${data.model_url}" target="_blank" class="btn btn-outline-secondary btn-sm">Download Best Model</a>
-            `);
-        }
-
-    } catch (err) {
-        console.error(err);
-        toast("#trainAlerts", "danger", String(err));
-    } finally {
-        hideLoading();
-    }
-});
-
-  // ---------------------------------------------------
-  // MODEL UPLOAD
-  // ---------------------------------------------------
-  $("#btnUploadModel").on("click", async function () {
-    const file = $("#uploadModelFile")[0].files[0];
-    const features = $("#uploadModelFeatures").val().trim();
-
-    if (!file) return toast("#uploadStatus", "warning", "Choose a model file.");
-
-    const fd = new FormData();
-    fd.append("model_file", file);
-    fd.append("features", features);
-
-    showLoading();
-    try {
-      const resp = await fetch("/api/upload_model", { method: "POST", body: fd });
+      showLoading();
+      const resp = await fetch("/api/train", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
       const data = await resp.json();
-      if (data.status !== "ok") throw data.message;
-
-      toast("#uploadStatus", "success", "Model uploaded successfully.");
-      $("#predictModelUrl").val(data.model_url);
-
-    } catch (err) {
-      toast("#uploadStatus", "danger", err);
-    } finally {
       hideLoading();
-    }
-  });
 
-  // ---------------------------------------------------
-  // PREDICTION
-  // ---------------------------------------------------
-  function buildPredictInputs() {
-    const features = $("#trainFeatures").val().split(",").map(s => s.trim()).filter(Boolean);
-    let html = "";
+      if (data.status !== "ok") return;
 
-    features.forEach(f => {
-      html += `
-        <div class="col-md-6">
-          <label>${f}</label>
-          <input class="form-control predict-value" data-feature="${f}">
-        </div>`;
+      CURRENT_MODEL = data.model_url;
+      $("#predictModelUrl").val(CURRENT_MODEL);
+      $("#classReport").text(data.classification_report || "");
     });
-
-    $("#predictFeatureInputs").html(`<div class="row g-2">${html}</div>`);
   }
 
-  $("#trainFeatures").on("input", buildPredictInputs);
-  buildPredictInputs();
+  /* ===============================
+     PREDICTION
+  =============================== */
+  if ($("#btnMakePrediction").length) {
 
-  $("#btnMakePrediction").on("click", async function () {
-    const model_url = $("#predictModelUrl").val().trim();
-    if (!model_url) return toast("#predictionResult", "warning", "Enter model URL.");
+    $("#btnMakePrediction").on("click", async function () {
 
-    const values = {};
-    $(".predict-value").each(function () {
-      values[$(this).data("feature")] = $(this).val();
-    });
+      const features_map = {};
+      $(".predict-value").each(function () {
+        features_map[$(this).data("feature")] = $(this).val();
+      });
 
-    showLoading();
-    try {
       const resp = await fetch("/api/predict", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model_url, features_map: values })
+        body: JSON.stringify({
+          model_url: $("#predictModelUrl").val(),
+          features_map
+        })
+      });
+
+      const data = await resp.json();
+      $("#predictionResult").html(`<strong>Prediction:</strong> ${data.prediction}`);
+    });
+  }
+  /* ===============================
+   RESTORE STATE ON PAGE LOAD
+=============================== */
+if (
+  $("#homeSummary").length ||
+  $("#datasetPreview").length ||
+  $("#edaPreviewArea").length
+) {
+  fetch("/api/state")
+    .then(res => res.json())
+    .then(state => {
+      if (!state || !state.action) return;
+
+      /* ---------- HOME PAGE ---------- */
+      if ($("#homeSummary").length) {
+        $("#summaryContent").html(`
+          <div class="mb-2">
+            <span class="badge bg-primary">
+              <i class="bi bi-database me-1"></i>${state.action}
+            </span>
+          </div>
+          <ul class="small">
+            <li><strong>Rows:</strong> ${state.rows}</li>
+            <li><strong>Features:</strong> ${state.features.join(", ")}</li>
+            <li><strong>Classes:</strong> ${state.classes.join(", ")}</li>
+          </ul>
+          <a href="${state.csv_url}" target="_blank">Download CSV</a>
+        `);
+      }
+
+      /* ---------- DATASET BUILDER ---------- */
+      if ($("#datasetPreview").length) {
+        $("#datasetPreview").html(`
+          <strong>${state.rows}</strong> rows generated<br>
+          <a href="${state.csv_url}" target="_blank">Download CSV</a>
+        `);
+      }
+
+      /* ---------- AUTO-RUN EDA AGAIN ---------- */
+      if (typeof runEDA === "function" && $("#edaPreviewArea").length) {
+        runEDA(state.csv_url);
+      }
+    })
+    .catch(err => console.error("State restore failed:", err));
+}
+
+/* ===============================
+   HOME — QUICK ACTIONS (FINAL)
+=============================== */
+
+if (
+  $("#quickGenerateBtn").length ||
+  $("#quickTrainBtn").length ||
+  $("#openDatasetBuilder").length
+) {
+
+  // Generate Example Dataset
+  $(document).on("click", "#quickGenerateBtn", async function () {
+    console.log("Generate Example Dataset clicked");
+
+    $("#summaryContent").html(
+      "<p class='text-muted'>Generating example dataset...</p>"
+    );
+
+    try {
+      const resp = await fetch("/api/generate_custom", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          features: "length,width,density,pH",
+          class_params: [
+            { name: "Ampalaya", mean: 50, std: 10 },
+            { name: "Banana", mean: 65, std: 12 },
+            { name: "Cabbage", mean: 40, std: 8 }
+          ],
+          samples: 3000,
+          seed: 42
+        })
       });
 
       const data = await resp.json();
       if (data.status !== "ok") throw data.message;
 
-      $("#predictionResult").html(`
-        <div class="alert alert-success">
-          <strong>Prediction:</strong> ${data.prediction}
-        </div>
-      `);
+      localStorage.setItem("latestRunSummary", JSON.stringify({
+        action: "Example Dataset Generated",
+        rows: data.n,
+        features: ["length", "width", "density", "pH"],
+        classes: ["Ampalaya", "Banana", "Cabbage"],
+        csv_url: data.csv_url,
+        time: new Date().toLocaleString()
+      }));
+
+      location.reload();
 
     } catch (err) {
-      toast("#predictionResult", "danger", err);
-    } finally {
-      hideLoading();
+      console.error(err);
+      $("#summaryContent").html(
+        "<div class='alert alert-danger'>Failed to generate dataset.</div>"
+      );
     }
   });
 
-  // ---------------------------------------------------
-  // ALGO GUIDE
-  // ---------------------------------------------------
-  const ALGO_DEFS = {
-    LogisticRegression: { title:"Logistic Regression", desc:"Linear model for classification using the logistic function." },
-    RandomForest: { title:"Random Forest", desc:"Ensemble of decision trees." },
-    GradientBoosting: { title:"Gradient Boosting", desc:"Boosting ensemble." },
-    SVC: { title:"Support Vector Classifier", desc:"Margin-based classifier." },
-    KNN: { title:"K-Nearest Neighbors", desc:"Instance-based classifier." },
-    DecisionTree: { title:"Decision Tree", desc:"Interpretable tree-based model." }
-};
+  // Go to Model Training
+  $(document).on("click", "#quickTrainBtn", function () {
+    console.log("Go to Model Training clicked");
+    window.location.href = "/model_training";
+  });
 
-$("#algoSelect").on("change", function(){
-    const info = ALGO_DEFS[$(this).val()] || {};
-    $("#algoDesc").html(`<strong>${info.title || ""}</strong><p class="small text-muted">${info.desc || ""}</p>`);
+  // Open Dataset Builder
+  $(document).on("click", "#openDatasetBuilder", function () {
+    console.log("Open Dataset Builder clicked");
+    window.location.href = "/dataset_builder";
+  });
+}
+
+  
+
 });
-
-
-}); // END READY
