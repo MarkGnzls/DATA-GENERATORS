@@ -453,36 +453,6 @@ def download_upload(filename):
 @app.route("/models/<path:filename>")
 def download_model(filename):
     return send_from_directory(app.config["MODEL_FOLDER"], filename)
-
-@app.route("/generate_example_dataset", methods=["POST"])
-def generate_example_dataset():
-    # Example config
-    payload = {
-        "features": "length,width,density,pH",
-        "class_params": [
-            {"name": "Ampalaya", "mean": 50, "std": 10},
-            {"name": "Banana", "mean": 65, "std": 12},
-            {"name": "Cabbage", "mean": 40, "std": 8}
-        ],
-        "samples": 3000,
-        "seed": 42
-    }
-
-    # Call your existing generator logic here
-    # Example:
-    result = generate_dataset_internal(payload)
-
-    session["latest_run"] = {
-        "action": "Example Dataset Generated",
-        "rows": result["n"],
-        "features": ["length", "width", "density", "pH"],
-        "classes": ["Ampalaya", "Banana", "Cabbage"],
-        "csv_url": result["csv_url"]
-    }
-
-    return redirect(url_for("index"))
-
-
 # -------------------------
 # Run
 # -------------------------
