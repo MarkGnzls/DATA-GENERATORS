@@ -43,7 +43,8 @@ app = Flask(__name__)
 app.config["UPLOAD_FOLDER"] = "uploads"
 app.config["MODEL_FOLDER"] = "models"
 app.config["MAX_CONTENT_LENGTH"] = 200 * 1024 * 1024
-app.secret_key = "ml-model-generator-secret"
+app.secret_key = os.environ.get("SECRET_KEY", "dev-secret")
+
 
 
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
@@ -252,7 +253,7 @@ def api_eda():
         # -------------------------------------------------
         # Pair Plot
         # -------------------------------------------------
-        pair_features = numeric.columns[:4]
+        pair_features = numeric.columns[:3]
         if len(pair_features) > 1:
             pair_df = df[pair_features].copy()
             if target:
@@ -457,4 +458,5 @@ def download_model(filename):
 # Run
 # -------------------------
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run()
+
