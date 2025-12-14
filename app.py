@@ -44,6 +44,7 @@ app.config["UPLOAD_FOLDER"] = "uploads"
 app.config["MODEL_FOLDER"] = "models"
 app.config["MAX_CONTENT_LENGTH"] = 200 * 1024 * 1024
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret")
+IS_RENDER = os.environ.get("RENDER") == "true"
 
 
 
@@ -253,21 +254,20 @@ def api_eda():
         # -------------------------------------------------
         # Pair Plot
         # -------------------------------------------------
-        pair_features = numeric.columns[:3]
-        if len(pair_features) > 1:
-            pair_df = df[pair_features].copy()
-            if target:
-                pair_df[target] = df[target]
-                g = sns.pairplot(pair_df, hue=target, diag_kind="kde", corner=True)
-            else:
-                g = sns.pairplot(pair_df, diag_kind="kde", corner=True)
+        if not IS_RENDER:
+            pair_features = numeric.columns[:3]  # limit features
+            if len(pair_features) > 1:
+                pair_df = df[pair_features].copy()
+                if target:
+                    pair_df[target] = df[target]
+                    g = sns.pairplot(pair_df, hue=target, diag_kind="hist")
+                else:
+                    g = sns.pairplot(pair_df, diag_kind="hist")
 
-            g.fig.suptitle("Pair Plot of Features", y=1.02)
-            buf = io.BytesIO()
-            g.savefig(buf, format="png")
-            images["pairplot"] = base64.b64encode(buf.getvalue()).decode()
-            plt.close(g.fig)
-
+                buf = io.BytesIO()
+                g.savefig(buf, format="png")
+                images["pairplot"] = base64.b64encode(buf.getvalue()).decode()
+        plt.close(g.fig)
         # -------------------------------------------------
         # Correlation Heatmap
         # -------------------------------------------------
