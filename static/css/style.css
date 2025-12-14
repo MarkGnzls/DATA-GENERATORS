@@ -103,3 +103,36 @@ body.overlay-open #mainContent { pointer-events: none; filter: brightness(0.95);
 .algo-failure-card #algoFailure {
   min-height: 90px;
 }
+/* Sidebar default */
+.sidebar {
+  width: 240px;
+  min-height: 100vh;
+  background: #fff;
+}
+
+/* Mobile behavior */
+@media (max-width: 991px) {
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: -260px;
+    height: 100%;
+    z-index: 1050;
+    transition: left 0.3s ease;
+  }
+
+  .sidebar.show {
+    left: 0;
+  }
+
+  .mobile-header {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    background: #f8f9fa;
+    border-bottom: 1px solid #ddd;
+    position: sticky;
+    top: 0;
+    z-index: 1100;
+  }
+}
